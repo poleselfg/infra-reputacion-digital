@@ -1,0 +1,100 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:v2.2
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+      - target: 443
+        published: 443
+        mode: host
+      - target: 9300
+        published: 9300
+        mode: host
+    command: >
+      --certificatesresolvers.le.acme.dnschallenge=true
+      --certificatesresolvers.le.acme.dnschallenge.provider=linodev4
+      --certificatesresolvers.le.acme.email=jose.norte.sosa@gmail.com
+      --certificatesresolvers.le.acme.storage=/certs/acme.json
+      --providers.docker=true
+      --providers.docker.swarmMode=true
+      --providers.docker.exposedbydefault=false
+      --entryPoints.es.address=:9300
+      --entrypoints.web.address=:80
+      --entryPoints.websecure.address=:443
+      --entrypoints.websecure.http.tls.certResolver=le
+      --entrypoints.websecure.http.tls.domains[0].main=reputacion.digital
+      --entrypoints.websecure.http.tls.domains[0].sans=*.reputacion.digital
+      --entrypoints.web.http.redirections.entrypoint.to=websecure
+      --entrypoints.web.http.redirections.entrypoint.scheme=https
+      --accesslog
+      --log.level=INFO
+      --api
+    networks:
+      - traefik
+    environment:
+      - LINODE_TOKEN_FILE=/run/secrets/linode-api-token
+    secrets:
+      - linode-api-token
+    deploy:
+      replicas: 3
+      placement:
+        max_replicas_per_node: 1
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        - "traefik.http.services.api.loadbalancer.server.port=9999"
+        - "traefik.http.routers.api.rule=Host(`traefik.reputacion.digital`)"
+        - "traefik.http.routers.api.entrypoints=websecure"
+        - "traefik.http.routers.api.service=api@internal"
+        - "traefik.http.routers.api.middlewares=myAuth"
+        - "traefik.http.routers.api.tls=true"
+        - "traefik.http.routers.api.tls.certResolver=le"
+        - "traefik.http.middlewares.myAuth.basicauth.users=zulu:$$apr1$$JWNaLWou$$2unFE3WpPbgecMcNlqmTo/"
+      update_config:
+        parallelism: 1
+        delay: 30s
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/traefik:/certs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  cors:
+    image: gentunian/cors
+    networks:
+      - traefik
+    environment:
+      - NODE_ENV=production
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.services.cors.loadbalancer.server.port=80"
+        - "traefik.docker.network=traefik"
+        - "traefik.http.routers.cors.tls.certResolver=le"
+        - "traefik.http.routers.cors.rule=HostRegexp(`reputacion.digital`, `{subdomain:.*}.reputacion.digital`) && Method(`OPTIONS`)"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+# external networks needs to be created before deploying this stack
+networks:
+  traefik:
+    external: true
+  consul:
+    external: true
+
+secrets:
+  linode-api-token:
+    external: true

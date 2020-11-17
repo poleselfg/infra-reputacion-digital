@@ -1,0 +1,9 @@
+RSAAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile    .ssh/authorized_keys
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+PrintMotd no # pam does that
+UsePrivilegeSeparation sandbox        # Default for new installations.
+Subsystem    sftp    /usr/lib/ssh/sftp-server

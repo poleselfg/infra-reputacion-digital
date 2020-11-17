@@ -1,0 +1,204 @@
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+#
+# 1. mkdir /opt/elasticsearc/data/ and mkdir /opt/elasticsearch/backup
+# 2. mount cert /mnt/elasticsearch/elastic-certificates.p12
+# 3. network elk created
+# 4. network traefik created
+# 5. label ALL NODES
+#
+version: "3.4"
+
+services:
+
+  # elasticsearch coordinator node, useful for loadbalancing searches withing kibana
+  elasticsearch-coordinator:
+    image: registry.gitlab.com/reputacion-digital/elasticsearch:7.8.0
+    networks:
+      - elknet
+      - traefik
+    environment:
+      - cluster.name=reputacion.digital.cluster
+      - cluster.initial_master_nodes=es1,es2,es3,es-coordinator
+      - discovery.seed_hosts=elasticsearch-node1,elasticsearch-node2,elasticsearch-node3
+      - node.name=es-coordinator
+      - node.master=false
+      - node.data=false
+      - node.ingest=false
+      - node.ml=false
+      - cluster.remote.connect=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - http.publish_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - http.bind_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - http.cors.enabled=true
+      - http.cors.allow-origin=/http:\/\/localhost:4200|https?:\/\/.*.reputacion.digital(:[0-9]+)?/
+      - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization,apikey
+      - network.host=_eth0:ipv4_
+      - transport.host=_eth0:ipv4_
+      - transport.bind_host=_eth0:ipv4_
+      - transport.tcp.port=9300-9400
+      - xpack.monitoring.collection.interval=30s
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate 
+      - xpack.security.transport.ssl.keystore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12 
+      - xpack.security.transport.ssl.truststore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.notification.email.account.gmail_account.profile=gmail
+      - xpack.notification.email.account.gmail_account.smtp.auth=true
+      - xpack.notification.email.account.gmail_account.smtp.starttls.enable=true
+      - xpack.notification.email.account.gmail_account.smtp.host=smtp.gmail.com
+      - xpack.notification.email.account.gmail_account.smtp.port=587
+      - xpack.notification.email.account.gmail_account.smtp.user=info@reputaciondigital.info
+    volumes:
+      - /mnt/elasticsearch/elastic-certificates.p12:/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    deploy:
+      placement:
+        constraints:
+          - node.labels.elastic_node == es-kibana-coordinator
+
+  # elasticsearch node 1
+  elasticsearch-node1:
+    image: registry.gitlab.com/reputacion-digital/elasticsearch:7.8.0
+    networks:
+      - elknet
+    environment:
+      - cluster.name=reputacion.digital.cluster
+      - cluster.initial_master_nodes=es1,es2,es3,es-coordinator
+      - discovery.seed_hosts=elasticsearch-node1,elasticsearch-node2,elasticsearch-node3
+      - node.name=es1
+      - "ES_JAVA_OPTS=-Xms6g -Xmx6g"
+      - network.host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.bind_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.tcp.port=9300
+      - indices.recovery.max_bytes_per_sec=20mb
+      - path.repo=/usr/share/elasticsearch/backup
+      - gateway.expected_data_nodes=3
+      - cluster.routing.allocation.node_concurrent_recoveries=1
+      - xpack.monitoring.collection.interval=30s
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.keystore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.security.transport.ssl.truststore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.notification.email.account.gmail_account.profile=gmail
+      - xpack.notification.email.account.gmail_account.smtp.auth=true
+      - xpack.notification.email.account.gmail_account.smtp.starttls.enable=true
+      - xpack.notification.email.account.gmail_account.smtp.host=smtp.gmail.com
+      - xpack.notification.email.account.gmail_account.smtp.port=587
+      - xpack.notification.email.account.gmail_account.smtp.user=info@reputaciondigital.info
+    volumes:
+      - /opt/elasticsearch/data:/usr/share/elasticsearch/data
+      - /opt/elasticsearch/backup:/usr/share/elasticsearch/backup
+      - /mnt/elasticsearch/elastic-certificates.p12:/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+      placement:
+        constraints:
+          - node.labels.elastic_node == es1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  # elasticsearch node 2
+  elasticsearch-node2:
+    image: registry.gitlab.com/reputacion-digital/elasticsearch:7.8.0
+    networks:
+      - elknet
+    environment:
+      - cluster.name=reputacion.digital.cluster
+      - cluster.initial_master_nodes=es1,es2,es3,es-coordinator
+      - discovery.seed_hosts=elasticsearch-node1,elasticsearch-node2,elasticsearch-node3
+      - node.name=es2
+      - "ES_JAVA_OPTS=-Xms6g -Xmx6g"
+      - network.host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.bind_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.tcp.port=9300
+      - indices.recovery.max_bytes_per_sec=20mb
+      - path.repo=/usr/share/elasticsearch/backup
+      - gateway.expected_data_nodes=3
+      - cluster.routing.allocation.node_concurrent_recoveries=1
+      - xpack.monitoring.collection.interval=30s
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.keystore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.security.transport.ssl.truststore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.notification.email.account.gmail_account.profile=gmail
+      - xpack.notification.email.account.gmail_account.smtp.auth=true
+      - xpack.notification.email.account.gmail_account.smtp.starttls.enable=true
+      - xpack.notification.email.account.gmail_account.smtp.host=smtp.gmail.com
+      - xpack.notification.email.account.gmail_account.smtp.port=587
+      - xpack.notification.email.account.gmail_account.smtp.user=info@reputaciondigital.info
+    volumes:
+      - /opt/elasticsearch/data:/usr/share/elasticsearch/data
+      - /opt/elasticsearch/backup:/usr/share/elasticsearch/backup
+      - /mnt/elasticsearch/elastic-certificates.p12:/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+      placement:
+        constraints:
+          - node.labels.elastic_node == es2
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  # elasticsearch node 3
+  elasticsearch-node3:
+    image: registry.gitlab.com/reputacion-digital/elasticsearch:7.8.0
+    networks:
+      - elknet
+    environment:
+      - cluster.name=reputacion.digital.cluster
+      - cluster.initial_master_nodes=es1,es2,es3,es-coordinator
+      - discovery.seed_hosts=elasticsearch-node1,elasticsearch-node2,elasticsearch-node3
+      - node.name=es3
+      - "ES_JAVA_OPTS=-Xms6g -Xmx6g"
+      - network.host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.bind_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - transport.tcp.port=9300
+      - indices.recovery.max_bytes_per_sec=20mb
+      - path.repo=/usr/share/elasticsearch/backup
+      - gateway.expected_data_nodes=3
+      - cluster.routing.allocation.node_concurrent_recoveries=1
+      - xpack.monitoring.collection.interval=30s
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.keystore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.security.transport.ssl.truststore.path=/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+      - xpack.notification.email.account.gmail_account.profile=gmail
+      - xpack.notification.email.account.gmail_account.smtp.auth=true
+      - xpack.notification.email.account.gmail_account.smtp.starttls.enable=true
+      - xpack.notification.email.account.gmail_account.smtp.host=smtp.gmail.com
+      - xpack.notification.email.account.gmail_account.smtp.port=587
+      - xpack.notification.email.account.gmail_account.smtp.user=info@reputaciondigital.info
+    volumes:
+      - /opt/elasticsearch/data:/usr/share/elasticsearch/data
+      - /opt/elasticsearch/backup:/usr/share/elasticsearch/backup
+      - /mnt/elasticsearch/elastic-certificates.p12:/usr/share/elasticsearch/config/certs/elastic-certificates.p12
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+      placement:
+        constraints:
+          - node.labels.elastic_node == es3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+networks:
+  traefik:
+    external: true
+  elknet:
+    external: true

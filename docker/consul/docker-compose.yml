@@ -1,0 +1,31 @@
+version: '3.3'
+
+services:
+  consul-leader:
+    image: consul
+    command: agent -server -bootstrap-expect=1
+    volumes:
+      - /mnt/consul/data:/consul/data
+    environment:
+      - CONSUL_LOCAL_CONFIG={"datacenter":"us_east2","server":true}
+      - CONSUL_BIND_INTERFACE=eth0
+      - CONSUL_CLIENT_INTERFACE=eth0
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+    networks:
+      - consul
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+# needs external network
+networks:
+  consul:
+    external: true

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 <pipeline-id> ..."
+  exit 1
+fi
+
+
+while [[ $# -gt 0 ]]; do
+
+  COMPOSE_FILE=docker-compose-logstash.$1.yml
+
+  if ! test -f ${COMPOSE_FILE}; then
+    echo "File not found: ${COMPOSE_FILE}. Ignoring..."
+  else
+    docker stack deploy -c "${COMPOSE_FILE}"  --with-registry-auth "$1"
+  fi
+
+  echo "Waiting for a few seconds..."
+  sleep 3
+
+  shift
+done

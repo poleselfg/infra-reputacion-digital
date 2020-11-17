@@ -1,0 +1,65 @@
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+#
+# 1. mkdir /opt/elasticsearc/data/ and mkdir /opt/elasticsearch/backup
+# 2. mount cert /mnt/elasticsearch/certs
+# 3. network elk created
+# 4. network traefik created
+# 5. label ALL NODES
+#
+version: "3.4"
+
+services:
+
+  # elasticsearch coordinator node, useful for loadbalancing searches withing kibana
+  elasticsearch-coordinator:
+    image: registry.gitlab.com/reputacion-digital/elasticsearch:7.8.0
+    networks:
+      - elknet
+      - traefik
+    environment:
+      - cluster.name=reputacion.digital.cluster
+      - cluster.initial_master_nodes=es1,es2,es3,es-coordinator
+      - discovery.seed_hosts=elasticsearch-node1,elasticsearch-node2,elasticsearch-node3
+      - node.name=es-coordinator
+      - node.master=false
+      - node.data=false
+      - node.ingest=false
+      - node.ml=false
+      - node.remote_cluster_client=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - http.publish_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - http.bind_host=_eth0:ipv4_,_eth1:ipv4_,_local_
+      - http.cors.enabled=true
+      - http.cors.allow-origin=/http:\/\/localhost:4200|https?:\/\/.*.reputacion.digital(:[0-9]+)?/
+      - http.cors.allow-headers=X-Requested-With,Content-Type,Content-Length,Authorization,apikey
+      - network.host=_eth0:ipv4_
+      - transport.host=_eth0:ipv4_
+      - transport.bind_host=_eth0:ipv4_
+      - transport.tcp.port=9300-9400
+      - xpack.monitoring.collection.enabled=true
+      - xpack.monitoring.collection.interval=30s
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/key.pem
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/crt.pem
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/certs/ca.crt
+      - xpack.notification.email.account.gmail_account.profile=gmail
+      - xpack.notification.email.account.gmail_account.smtp.auth=true
+      - xpack.notification.email.account.gmail_account.smtp.starttls.enable=true
+      - xpack.notification.email.account.gmail_account.smtp.host=smtp.gmail.com
+      - xpack.notification.email.account.gmail_account.smtp.port=587
+      - xpack.notification.email.account.gmail_account.smtp.user=info@reputaciondigital.info
+    volumes:
+      - /mnt/elasticsearch/certs:/usr/share/elasticsearch/config/certs
+    deploy:
+      placement:
+        constraints:
+          - node.labels.elastic_node == es-kibana-coordinator
+
+networks:
+  traefik:
+    external: true
+  elknet:
+    external: true

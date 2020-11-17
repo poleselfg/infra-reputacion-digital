@@ -1,0 +1,71 @@
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+#
+# 1. elasticsearch deployed 
+# 2. logstash node tagged with 'logstash_node = yes'
+# 3. network elk created
+# 4. network traefik created
+# 5. pipelines and templates mounted on /mnt/logstash
+#
+version: '3.4'
+
+services:
+  logstash:
+    image: registry.gitlab.com/reputacion-digital/logstash:7.3.2
+    environment:
+      - queue.type=persisted
+      - xpack.monitoring.enabled=true
+      - xpack.monitoring.collection.interval=30s
+      - xpack.monitoring.elasticsearch.url=["http://elasticsearch-node1:9200","http://elasticsearch-node2:9200","http://elasticsearch-node3:9200"]
+      - xpack.monitoring.elasticsearch.username=logstash_system
+      - xpack.monitoring.elasticsearch.password=0nStero1d
+#      - LOG_LEVEL=debug
+    volumes:
+      - /mnt/logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - /mnt/logstash/templates/logstash.json:/opt/logstash/templates/logstash.json
+    networks:
+      - traefik
+      - elknet
+    deploy:
+      placement:
+        constraints:
+          - node.labels.logstash_node == yes
+      labels:
+        - "traefik.enable=true"
+        - "traefik.port=9443"
+        - "traefik.frontend.rule=Host:in.reputacion.digital;PathPrefix:/ingest"
+        - "traefik.docker.network=traefik"
+        - "traefik.backend=logstash"
+        - "traefik.domain=in.reputacion.digital"
+        - "traefik.frontend.auth.basic=cthulhu:$$apr1$$7jLW2JNa$$O.kKmA1eApPr/GcnmRg3D/"
+        - "traefik.redirectorservice.frontend.entryPoints=http"
+        - "traefik.redirectorservice.frontend.redirect.entryPoint=https"
+        - "traefik.webservice.frontend.entryPoints=https"
+        # - co.elastic.metrics/module=logstash
+        # - co.elastic.metrics/hosts="logstash:9600"
+        # - co.elastic.metrics/metricsets=["node", "node_stats"]
+        # - co.elastic.metrics/period=10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  brand24:
+    image: gentunian/rd:extractor-brand24
+    networks:
+      - elknet
+    environment:
+      - NODE_ENV=production
+    deploy:
+      placement:
+        constraints:
+          - node.labels.logstash_node == yes
+
+# networks needs to be created before deployment
+networks:
+  traefik:
+    external: true
+  elknet:
+    external: true

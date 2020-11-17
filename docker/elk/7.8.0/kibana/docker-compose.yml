@@ -1,0 +1,46 @@
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+#
+# 1. elasticsearch-coordinator deployed 
+# 2. kibana node tagged with 'elastic_node = es-kibana-coordinator'
+# 3. network elk created
+# 4. network traefik created
+#
+#
+version: '3.4'
+
+services:
+  # kibana service
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.8.0
+    environment:
+      SERVER_HOST: 0.0.0.0
+      ELASTICSEARCH_HOSTS: http://elasticsearch-coordinator:9200
+      ELASTICSEARCH_PASSWORD: 0nStero1d
+      ELASTICSEARCH_USERNAME: kibana
+    networks:
+      - elknet
+      - traefik
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        - "traefik.http.routers.kibana.rule=Host(`dashboard.reputacion.digital`)"
+        - "traefik.http.routers.kibana.tls.certResolver=le"
+        - "traefik.http.services.kibana.loadbalancer.server.port=5601"
+      placement:
+        constraints:
+          - node.labels.kibana_node == yes
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+# networks needs to be created
+networks:
+  traefik:
+    external: true
+  elknet:
+    external: true

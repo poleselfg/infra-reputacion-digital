@@ -1,0 +1,91 @@
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+####### REQUIREMENTS FOR DEPLOYING THIS STACK ########
+#
+# . node tagged with 'mondodb_node=mongodb01'
+# . node tagged with 'senti=yes'
+# . traefik network created
+# . create directory /opt/mongodb
+#
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:3.6
+    networks:
+      - default
+    volumes:
+      - /opt/mongodb:/data/db
+    deploy:
+      placement:
+        constraints:
+          - node.labels.mongodb_node == mongodb01
+      restart_policy:
+        condition: on-failure
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  senti-api:
+    image: gentunian/rd:senti-api-v4
+    environment:
+      MONGODB_HOST: mongodb
+      DISCOVERY_HOSTNAME: tasks.senti-api
+    networks:
+      - traefik
+      - default
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        # the port for the backend service
+        - "traefik.http.services.senti-api.loadbalancer.server.port=8080"
+        - "traefik.http.routers.senti-api.entrypoints=websecure"
+        - "traefik.http.routers.senti-api.rule=Host(`senti.reputacion.digital`)"
+        - "traefik.http.routers.senti-api.middlewares=senti-api-auth"
+        - "traefik.http.routers.senti-api.tls.certResolver=le"
+        - "traefik.http.middlewares.senti-api-auth.basicauth.users=klean:$$apr1$$zTR7zZU2$$3lwPFAWzpWZZTJa7qIKt31"
+#        - "traefik.frontend.headers.customResponseHeaders=Access-Control-Allow-Origin:*||Access-Control-Allow-Method:GET,POST,PUT,PATCH,DELETE,OPTIONS||Access-Control-Allow-Headers:apikey,authorization,content-type||Access-Control-Allow-Credentials:true"
+      placement:
+        constraints:
+          - node.labels.senti == yes
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  senti-app:
+    image: gentunian/rd:senti-app-v4
+    environment:
+      API_URL: https://senti.reputacion.digital/api/v2
+    networks:
+      - traefik
+      - default
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        # the port for the backend service
+        - "traefik.http.services.senti-app.loadbalancer.server.port=80"
+        - "traefik.http.routers.senti-app.entrypoints=websecure"
+        - "traefik.http.routers.senti-app.rule=Host(`senti-app.reputacion.digital`)"
+        - "traefik.http.routers.senti-app.middlewares=senti-app-auth"
+        - "traefik.http.routers.senti-app.tls.certResolver=le"
+        - "traefik.http.middlewares.senti-app-auth.basicauth.users=klean:$$apr1$$zTR7zZU2$$3lwPFAWzpWZZTJa7qIKt31"
+      placement:
+        constraints:
+          - node.labels.senti == yes
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+# external networks needs to be created
+networks:
+  default:
+  traefik:
+    external: true

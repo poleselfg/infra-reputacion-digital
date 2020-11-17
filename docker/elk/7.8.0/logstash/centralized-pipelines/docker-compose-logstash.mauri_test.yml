@@ -1,0 +1,36 @@
+version: '3.3'
+
+services:
+  logstash-mauri_test:
+    image: registry.gitlab.com/reputacion-digital/logstash:7.3.2
+    hostname: logstash-mauri_test
+    environment:
+      - queue.type=persisted
+      - xpack.monitoring.enabled=true
+      - xpack.monitoring.collection.interval=30s
+      - xpack.monitoring.elasticsearch.hosts=["http://elasticsearch-node1:9200","http://elasticsearch-node2:9200","http://elasticsearch-node3:9200"]
+      - xpack.monitoring.elasticsearch.username=elastic
+      - xpack.monitoring.elasticsearch.password=0nStero1d
+      - LOG_LEVEL=debug
+      - xpack.management.elasticsearch.username=elastic
+      - xpack.management.elasticsearch.password=0nStero1d
+      - xpack.management.enabled=true
+      - xpack.management.elasticsearch.hosts=["http://elasticsearch-node1:9200","http://elasticsearch-node2:9200","http://elasticsearch-node3:9200"]
+      - xpack.management.logstash.poll_interval=5s
+      - xpack.management.pipeline.id=["mauri_test"]
+    networks:
+      - elknet
+    deploy:
+      placement:
+        constraints:
+          - node.labels.logstash_node == yes
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+networks:
+  elknet:
+    external: true
+

@@ -1,0 +1,88 @@
+version: "3.4"
+
+services:
+  traefik:
+    image: traefik:1.7
+    ports:
+      - 80:80
+      - 443:443
+    command: >
+      --docker
+      --docker.swarmmode
+      --docker.watch
+      --docker.exposedbydefault=false
+      --entrypoints='Name:http Address::80'
+      --entrypoints='Name:https Address::443 TLS'
+      --consul
+      --consul.endpoint="consul-leader:8500"
+      --acme
+      --acme.email=jose.norte.sosa@gmail.com
+      --acme.storage="traefik/acme/account"
+      --acme.entryPoint=https
+      --acme.httpChallenge.entryPoint=http
+      --acme.onhostrule=true
+      --acme.acmelogging=true
+      --loglevel=INFO
+      --accesslog
+      --api
+    networks:
+      - consul
+      - traefik
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        - "traefik.port=8080"
+        - "traefik.frontend.passHostHeader=true"
+        - "traefik.frontend.rule=Host:traefik.reputacion.digital"
+        - "traefik.redirectorservice.frontend.entryPoints=http"
+        - "traefik.redirectorservice.frontend.redirect.entryPoint=https"
+        - "traefik.webservice.frontend.entryPoints=https"
+        - "traefik.frontend.auth.basic.users=zulu:$$apr1$$JWNaLWou$$2unFE3WpPbgecMcNlqmTo/"
+        - "traefik.domain=traefik.reputacion.digital"
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+  cors:
+    image: gentunian/cors
+    networks:
+      - traefik
+    environment:
+      - NODE_ENV=production
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.backend=cors"
+        - "traefik.docker.network=traefik"
+        - "traefik.port=80"
+        - "traefik.protocol=http"
+        - "traefik.frontend.rule=Method:OPTIONS;Host:es.reputacion.digital,in.reputacion.digital,senti.reputacion.digital,senti-app.reputacion.digital"
+        - "traefik.redirectorservice.frontend.entryPoints=http"
+        - "traefik.redirectorservice.frontend.redirect.entryPoint=https"
+        - "traefik.webservice.frontend.entryPoints=https"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10MB"
+        max-file: "10"
+
+# external networks needs to be created before deploying this stack
+networks:
+  traefik:
+    external: true
+  consul:
+    external: true
