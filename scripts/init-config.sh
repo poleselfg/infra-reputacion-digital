@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# fucking chilean people
+
 cat > /etc/default/locale << EOF
 LANG="en_US"
 LOCALE="en_US:en"
